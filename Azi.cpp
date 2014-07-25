@@ -68,15 +68,13 @@ Azi::getInputDomain() const
 size_t
 Azi::getPreferredBlockSize() const
 {
-    return 0; // 0 means "I can handle any block size"
+    return 2048;
 }
 
 size_t 
 Azi::getPreferredStepSize() const
 {
-    return 0; // 0 means "anything sensible"; in practice this
-              // means the same as the block size for TimeDomain
-              // plugins, or half of it for FrequencyDomain plugins
+    return 256;
 }
 
 size_t
@@ -203,47 +201,55 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
     const float *left = inputBuffers[0];
     const float *right = inputBuffers[1];
 
-    float *mixed = new float[m_blockSize];
-    for (int i = 0; i < m_blockSize; ++i) {
-	mixed[i] = inputBuffers[0][i] + inputBuffers[1][i];
-    }
-    float mixedRms = rms(mixed, m_blockSize);
-
     FeatureSet fs;
     Feature f;
 
-    float *unpanned = new float[m_blockSize];
+    float *mixed = new float[m_blockSize];
+    for (int i = 0; i < m_blockSize; ++i) {
+	mixed[i] = left[i] + right[i];
+    }
+    float mixedRms = rms(mixed, m_blockSize);
+
+    float *panned = new float[m_blockSize];
 
     vector<float> levels;
 
     for (int j = -m_width; j <= m_width; ++j) {
 
-	float unpan = float(j) / m_width;
+	float pan = float(j) / m_width;
 
 	float leftGain = 1.f, rightGain = 1.f;
-	if (unpan > 0.f) leftGain *= 1.f - unpan;
-	if (unpan < 0.f) rightGain *= unpan + 1.f;
+	if (pan > 0.f) leftGain *= 1.f - pan;
+	if (pan < 0.f) rightGain *= pan + 1.f;
 
-	for (int i = 0; i < m_blockSize; ++i) {
-	    unpanned[i] = (leftGain * left[i]) - (rightGain * right[i]);
+	if (leftGain < rightGain) {
+	
+	    float ratio = leftGain / rightGain;
+	    for (int i = 0; i < m_blockSize; ++i) {
+		panned[i] = left[i] - ratio * right[i];
+	    }
+
+	} else {
+	
+	    float ratio = rightGain / leftGain;
+	    for (int i = 0; i < m_blockSize; ++i) {
+		panned[i] = right[i] - ratio * left[i];
+	    }
 	}
 
-	float unpannedRms = rms(unpanned, m_blockSize);
-	levels.push_back((mixedRms - unpannedRms) / mixedRms);
+	float pannedRms = rms(panned, m_blockSize);
+	levels.push_back(mixedRms - pannedRms);
     }
 
     for (int i = 1; i+1 < int(levels.size()); ++i) {
-	f.values.push_back(1.f - levels[i]);
-/*
-	if (levels[i] < levels[i-1] && levels[i] < levels[i+1]) {
+//	if (levels[i] > levels[i-1] && levels[i] > levels[i+1]) {
 	    f.values.push_back(levels[i]);
-	} else {
-	    f.values.push_back(0);
-	}
-*/
+//	} else {
+//	    f.values.push_back(0);
+//	}
     }
 
-    delete[] unpanned;
+    delete[] panned;
     delete[] mixed;
 
     fs[0].push_back(f);
