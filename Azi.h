@@ -47,7 +47,7 @@ protected:
     int m_width;
     int m_blockSize;
 
-    float rms(const float *buffer, int size);
+    float rms(const std::vector<float> &);
 };
 
 

@@ -2,8 +2,11 @@
 #include "Azi.h"
 
 #include <cmath>
+#include <iostream>
 
 using std::vector;
+using std::cerr;
+using std::endl;
 
 Azi::Azi(float inputSampleRate) :
     Plugin(inputSampleRate),
@@ -183,74 +186,103 @@ Azi::reset()
 }
 
 float
-Azi::rms(const float *buffer, int size)
+Azi::rms(const vector<float> &buffer)
 {
     float sum = 0;
-    if (size == 0) {
-	return 0;
-    }
-    for (int i = 0; i < size; ++i) {
+    for (int i = 0; i < int(buffer.size()); ++i) {
 	sum += buffer[i] * buffer[i];
     }
-    return sqrt(sum / size);
+    return sqrtf(sum / buffer.size());
 }
 
 Azi::FeatureSet
 Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 {
-    const float *left = inputBuffers[0];
-    const float *right = inputBuffers[1];
+    vector<float> left, right, mixed;
+    for (int i = 0; i < m_blockSize; ++i) {
+	left.push_back(inputBuffers[0][i]);
+	right.push_back(inputBuffers[1][i]);
+	mixed.push_back((left[i] + right[i]) / 2.f);
+    }
 
     FeatureSet fs;
     Feature f;
+    f.values = vector<float>(m_width * 2 + 1, 0.f);
 
-    float *mixed = new float[m_blockSize];
-    for (int i = 0; i < m_blockSize; ++i) {
-	mixed[i] = left[i] + right[i];
-    }
-    float mixedRms = rms(mixed, m_blockSize);
+    float threshold = 0.001;
+    float diffThreshold = 0.000001;
 
-    float *panned = new float[m_blockSize];
+    float mixedRms = 0.f;
 
-    vector<float> levels;
+    vector<float> cancelled(m_blockSize, 0.f);
+    vector<float> bestRemainder(m_blockSize, 0.f);
 
-    for (int j = -m_width; j <= m_width; ++j) {
+    while (1) {
 
-	float pan = float(j) / m_width;
+	float prevMixedRms = mixedRms;
+	mixedRms = rms(mixed);
 
-	float leftGain = 1.f, rightGain = 1.f;
-	if (pan > 0.f) leftGain *= 1.f - pan;
-	if (pan < 0.f) rightGain *= pan + 1.f;
+	if (mixedRms < threshold ||
+	    fabsf(mixedRms - prevMixedRms) < diffThreshold) {
+	    break;
+	}
 
-	if (leftGain < rightGain) {
+	float bestRmsDiff = 0.f;
+	int bestAzi = 0;
+	float bestLeftGain = 0.f;
+	float bestRightGain = 0.f;
+
+	for (int j = -m_width; j <= m_width; ++j) {
+
+	    float pan = float(j) / m_width;
+
+	    float leftGain = 1.f, rightGain = 1.f;
+	    if (pan > 0.f) leftGain *= 1.f - pan;
+	    if (pan < 0.f) rightGain *= pan + 1.f;
+
+	    if (leftGain < rightGain) {
 	
-	    float ratio = leftGain / rightGain;
-	    for (int i = 0; i < m_blockSize; ++i) {
-		panned[i] = left[i] - ratio * right[i];
+		float ratio = leftGain / rightGain;
+		for (int i = 0; i < m_blockSize; ++i) {
+		    cancelled[i] = left[i] - ratio * right[i];
+		}
+
+	    } else {
+	
+		float ratio = rightGain / leftGain;
+		for (int i = 0; i < m_blockSize; ++i) {
+		    cancelled[i] = right[i] - ratio * left[i];
+		}
 	    }
 
-	} else {
-	
-	    float ratio = rightGain / leftGain;
-	    for (int i = 0; i < m_blockSize; ++i) {
-		panned[i] = right[i] - ratio * left[i];
+	    float cancelledRms = rms(cancelled);
+	    float diff = mixedRms - cancelledRms;
+
+//	    cerr << "for j = " << j << " diff = " << diff << endl;
+
+	    if (diff > bestRmsDiff) {
+		bestRmsDiff = diff;
+		bestAzi = j;
+		bestLeftGain = leftGain;
+		bestRightGain = rightGain;
+		for (int i = 0; i < m_blockSize; ++i) {
+		    bestRemainder[i] = (mixed[i] - cancelled[i]);
+		}
 	    }
 	}
 
-	float pannedRms = rms(panned, m_blockSize);
-	levels.push_back(mixedRms - pannedRms);
+	cerr << "mixedRms = " << mixedRms << ", bestAzi = " << bestAzi << ", bestRmsDiff = " << bestRmsDiff << endl;
+
+	f.values[bestAzi + m_width] = bestRmsDiff;
+	    
+	for (int i = 0; i < m_blockSize; ++i) {
+	    left[i] -= bestLeftGain * bestRemainder[i];
+	    right[i] -= bestRightGain * bestRemainder[i];
+	    mixed[i] = (left[i] + right[i]) / 2.f;
+	}
     }
 
-    for (int i = 1; i+1 < int(levels.size()); ++i) {
-//	if (levels[i] > levels[i-1] && levels[i] > levels[i+1]) {
-	    f.values.push_back(levels[i]);
-//	} else {
-//	    f.values.push_back(0);
-//	}
-    }
-
-    delete[] panned;
-    delete[] mixed;
+    cerr << "mixedRms after = " << mixedRms << endl;
 
     fs[0].push_back(f);
 
