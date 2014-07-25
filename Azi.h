@@ -44,7 +44,10 @@ public:
     FeatureSet getRemainingFeatures();
 
 protected:
-    // plugin-specific data and methods go here
+    int m_width;
+    int m_blockSize;
+
+    float rms(const float *buffer, int size);
 };
 
 
