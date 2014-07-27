@@ -31,17 +31,38 @@ cancelled l r ix =
         fi;
     esac;
 
+cancelledCplx l r ix =
+    case gains ix of
+    { left, right }:
+        complex.magnitude
+        if left < right then 
+            ratio = left / right; 
+            complex.subtract l (complex.scale ratio r);
+        else
+            ratio = right / left; 
+            complex.subtract r (complex.scale ratio l);
+        fi;
+    esac;
+
 range = [0..20];
 
-\() (plot.plot [ Vector (vector.fromList (map panof range)) ]);
+plotForRange f =
+    \() (plot.plot [ Vector (vector.fromList (map f range)) ]);
 
-\() (plot.plot [ Vector (vector.fromList (map (cancelled 1 1) range)) ]);
+plotForRange panof;
 
-\() (plot.plot [ Vector (vector.fromList (map (cancelled 1 0) range)) ]);
+plotForRange (cancelled 1 1);
+plotForRange (cancelled 1 0);
+plotForRange (cancelled 0 1);
+plotForRange (cancelled 0.5 1);
+plotForRange (cancelled 0.5 0.2);
 
-\() (plot.plot [ Vector (vector.fromList (map (cancelled 0 1) range)) ]);
+c mag phase = complex.fromPolar mag phase;
 
-\() (plot.plot [ Vector (vector.fromList (map (cancelled 0.5 1) range)) ]);
+plotForRange (cancelledCplx (c 1 0) (c 1 0));
+plotForRange (cancelledCplx (c 1 0) (c 1 pi));
+plotForRange (cancelledCplx (c 1 0) (c 1 0.1));
+plotForRange (cancelledCplx (c 1 0) (c 1 0.2));
+plotForRange (cancelledCplx (c 1 0) (c 1 1));
 
-\() (plot.plot [ Vector (vector.fromList (map (cancelled 0.5 0.2) range)) ]);
 
