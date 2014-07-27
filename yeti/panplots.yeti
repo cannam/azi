@@ -1,0 +1,47 @@
+program panplots;
+
+vector = load may.vector;
+matrix = load may.matrix;
+complex = load may.complex;
+plot = load may.plot;
+vamp = load may.vamp;
+
+panof ix = (ix / 10) - 1;
+
+gains ix =
+   (p = panof ix;
+    if p > 0 then
+        { left = 1 - p, right = 1 }
+    else
+        { left = 1, right = p + 1 }
+    fi);
+
+sqr x = x * x;
+
+cancelled l r ix =
+    case gains ix of
+    { left, right }:
+        abs
+        if left < right then 
+            ratio = left / right; 
+            l - ratio * r;
+        else
+            ratio = right / left; 
+            r - ratio * l;
+        fi;
+    esac;
+
+range = [0..20];
+
+\() (plot.plot [ Vector (vector.fromList (map panof range)) ]);
+
+\() (plot.plot [ Vector (vector.fromList (map (cancelled 1 1) range)) ]);
+
+\() (plot.plot [ Vector (vector.fromList (map (cancelled 1 0) range)) ]);
+
+\() (plot.plot [ Vector (vector.fromList (map (cancelled 0 1) range)) ]);
+
+\() (plot.plot [ Vector (vector.fromList (map (cancelled 0.5 1) range)) ]);
+
+\() (plot.plot [ Vector (vector.fromList (map (cancelled 0.5 0.2) range)) ]);
+
