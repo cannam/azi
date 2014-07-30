@@ -3,8 +3,10 @@
 
 #include <cmath>
 #include <iostream>
+#include <complex>
 
 using std::vector;
+using std::complex;
 using std::cerr;
 using std::endl;
 
@@ -198,94 +200,62 @@ Azi::rms(const vector<float> &buffer)
 Azi::FeatureSet
 Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 {
-    vector<float> left, right, mixed;
-    for (int i = 0; i < m_blockSize; ++i) {
-	left.push_back(inputBuffers[0][i]);
-	right.push_back(inputBuffers[1][i]);
-	mixed.push_back((left[i] + right[i]) / 2.f);
+    vector<complex<float> > left, right;
+    for (int i = 0; i <= m_blockSize/2; ++i) {
+	left.push_back(complex<float>
+		       (inputBuffers[0][i*2], inputBuffers[0][i*2+1]));
+	right.push_back(complex<float>
+			(inputBuffers[1][i*2], inputBuffers[1][i*2+1]));
+    }
+    int n = left.size();
+
+    vector<float> plan(m_width * 2 + 1, 0.f);
+    vector<complex<float> > cancelled(n);
+
+    for (int j = -m_width; j <= m_width; ++j) {
+
+	float pan = float(j) / m_width;
+
+	float leftGain = 1.f, rightGain = 1.f;
+	if (pan > 0.f) leftGain *= 1.f - pan;
+	if (pan < 0.f) rightGain *= pan + 1.f;
+	    
+	if (leftGain < rightGain) {
+	
+	    float ratio = leftGain / rightGain;
+	    for (int i = 0; i < n; ++i) {
+		cancelled[i] = left[i] - ratio * right[i];
+	    }
+
+	} else {
+	
+	    float ratio = rightGain / leftGain;
+	    for (int i = 0; i < n; ++i) {
+		cancelled[i] = right[i] - ratio * left[i];
+	    }
+	}
+
+//	cerr << "j = " << j << ", leftGain = " << leftGain << ", rightGain = "
+//	     << rightGain << endl;
+    
+	for (int i = 0; i < n; ++i) {
+	    plan[j + m_width] += std::abs(cancelled[i]);
+//	    cerr << "ix = " << j + m_width << ", i = " << i << ", j = " << j << ", cancelled = " << cancelled[i] << ", abs = " << std::abs(cancelled[i]) << ", sum so far = " << plan[j + m_width] << endl;
+	}
     }
 
     FeatureSet fs;
     Feature f;
-    f.values = vector<float>(m_width * 2 + 1, 0.f);
-
-    float threshold = 0.001;
-    float diffThreshold = 0.000001;
-
-    float mixedRms = 0.f;
-
-    vector<float> cancelled(m_blockSize, 0.f);
-    vector<float> bestRemainder(m_blockSize, 0.f);
-
-    while (1) {
-
-	float prevMixedRms = mixedRms;
-	mixedRms = rms(mixed);
-
-	if (mixedRms < threshold ||
-	    fabsf(mixedRms - prevMixedRms) < diffThreshold) {
-	    break;
-	}
-
-	float bestRmsDiff = 0.f;
-	int bestAzi = 0;
-	float bestLeftGain = 0.f;
-	float bestRightGain = 0.f;
-
-	for (int j = -m_width; j <= m_width; ++j) {
-
-	    float pan = float(j) / m_width;
-
-	    float leftGain = 1.f, rightGain = 1.f;
-	    if (pan > 0.f) leftGain *= 1.f - pan;
-	    if (pan < 0.f) rightGain *= pan + 1.f;
-
-	    if (leftGain < rightGain) {
-	
-		float ratio = leftGain / rightGain;
-		for (int i = 0; i < m_blockSize; ++i) {
-		    cancelled[i] = left[i] - ratio * right[i];
-		}
-
-	    } else {
-	
-		float ratio = rightGain / leftGain;
-		for (int i = 0; i < m_blockSize; ++i) {
-		    cancelled[i] = right[i] - ratio * left[i];
-		}
-	    }
-
-	    float cancelledRms = rms(cancelled);
-	    float diff = mixedRms - cancelledRms;
-
-//	    cerr << "for j = " << j << " diff = " << diff << endl;
-
-	    if (diff > bestRmsDiff) {
-		bestRmsDiff = diff;
-		bestAzi = j;
-		bestLeftGain = leftGain;
-		bestRightGain = rightGain;
-		for (int i = 0; i < m_blockSize; ++i) {
-		    bestRemainder[i] = (mixed[i] - cancelled[i]);
-		}
-	    }
-	}
-
-	cerr << "mixedRms = " << mixedRms << ", bestAzi = " << bestAzi << ", bestRmsDiff = " << bestRmsDiff << endl;
-
-	f.values[bestAzi + m_width] = bestRmsDiff;
-	    
-	for (int i = 0; i < m_blockSize; ++i) {
-	    left[i] -= bestLeftGain * bestRemainder[i];
-	    right[i] -= bestRightGain * bestRemainder[i];
-	    mixed[i] = (left[i] + right[i]) / 2.f;
-	}
-    }
-
-    cerr << "mixedRms after = " << mixedRms << endl;
+    f.values = plan;
 
     fs[0].push_back(f);
 
+//    cerr << "feature returning:" << endl;
+//    for (int i = 0; i < fs[0][0].values.size(); ++i) {
+//	cerr << fs[0][0].values[i] << " ";
+//    }
+//    cerr << endl;
+    
     return fs;
 }
 
