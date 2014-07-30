@@ -200,12 +200,15 @@ Azi::rms(const vector<float> &buffer)
 Azi::FeatureSet
 Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 {
-    vector<complex<float> > left, right;
+//    vector<complex<float> > left, right;
+    vector<float> left, right;
     for (int i = 0; i <= m_blockSize/2; ++i) {
-	left.push_back(complex<float>
-		       (inputBuffers[0][i*2], inputBuffers[0][i*2+1]));
-	right.push_back(complex<float>
-			(inputBuffers[1][i*2], inputBuffers[1][i*2+1]));
+	left.push_back(std::abs
+		       (complex<float>
+			(inputBuffers[0][i*2], inputBuffers[0][i*2+1])));
+	right.push_back(std::abs
+			(complex<float>
+			 (inputBuffers[1][i*2], inputBuffers[1][i*2+1])));
     }
     int n = left.size();
 
