@@ -213,37 +213,39 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
     int n = left.size();
 
     vector<float> plan(m_width * 2 + 1, 0.f);
-    vector<complex<float> > cancelled(n);
+    vector<float> cancelled(m_width * 2 + 1);
 
-    for (int j = -m_width; j <= m_width; ++j) {
+    for (int i = 0; i < n; ++i) {
 
-	float pan = float(j) / m_width;
+	for (int j = 0; j <= m_width * 2; ++j) {
 
-	float leftGain = 1.f, rightGain = 1.f;
-	if (pan > 0.f) leftGain *= 1.f - pan;
-	if (pan < 0.f) rightGain *= pan + 1.f;
+	    float pan = float(j - m_width) / m_width;
+
+	    float leftGain = 1.f, rightGain = 1.f;
+	    if (pan > 0.f) leftGain *= 1.f - pan;
+	    if (pan < 0.f) rightGain *= pan + 1.f;
 	    
-	if (leftGain < rightGain) {
-	
-	    float ratio = leftGain / rightGain;
-	    for (int i = 0; i < n; ++i) {
-		cancelled[i] = left[i] - ratio * right[i];
-	    }
-
-	} else {
-	
-	    float ratio = rightGain / leftGain;
-	    for (int i = 0; i < n; ++i) {
-		cancelled[i] = right[i] - ratio * left[i];
+	    if (leftGain < rightGain) {
+		float ratio = leftGain / rightGain;
+		cancelled[j] = std::abs(left[i] - ratio * right[i]);
+	    } else {
+		float ratio = rightGain / leftGain;
+		cancelled[j] = std::abs(right[i] - ratio * left[i]);
 	    }
 	}
 
-//	cerr << "j = " << j << ", leftGain = " << leftGain << ", rightGain = "
-//	     << rightGain << endl;
-    
-	for (int i = 0; i < n; ++i) {
-	    plan[j + m_width] += std::abs(cancelled[i]);
-//	    cerr << "ix = " << j + m_width << ", i = " << i << ", j = " << j << ", cancelled = " << cancelled[i] << ", abs = " << std::abs(cancelled[i]) << ", sum so far = " << plan[j + m_width] << endl;
+	for (int j = 0; j <= m_width * 2; ++j) {
+
+	    if ((j == 0 && cancelled[j] < cancelled[j+1]) ||
+		(j == m_width*2 && cancelled[j] < cancelled[j-1]) ||
+		(j > 0 && j < m_width*2 &&
+		 cancelled[j] < cancelled[j-1] &&
+		 cancelled[j] < cancelled[j+1])) {
+
+		// local minimum
+
+		plan[j] += 1;
+	    }
 	}
     }
 

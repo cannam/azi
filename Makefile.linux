@@ -1,7 +1,7 @@
 
-CFLAGS := -Wall -O3 -fopenmp -ffast-math -msse -msse2 -mfpmath=sse -ftree-vectorize -fPIC -I../vamp-plugin-sdk/ -DUSE_PTHREADS
+#CFLAGS := -Wall -O3 -fopenmp -ffast-math -msse -msse2 -mfpmath=sse -ftree-vectorize -fPIC -I../vamp-plugin-sdk/ -DUSE_PTHREADS
 
-#CFLAGS := -g -fPIC -I../vamp-plugin-sdk
+CFLAGS := -g -fPIC -I../vamp-plugin-sdk
 
 CXXFLAGS := $(CFLAGS)
 
