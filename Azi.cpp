@@ -12,7 +12,7 @@ using std::endl;
 
 Azi::Azi(float inputSampleRate) :
     Plugin(inputSampleRate),
-    m_width(32)
+    m_width(64)
 {
 }
 
@@ -73,13 +73,13 @@ Azi::getInputDomain() const
 size_t
 Azi::getPreferredBlockSize() const
 {
-    return 2048;
+    return 4096;
 }
 
 size_t 
 Azi::getPreferredStepSize() const
 {
-    return 256;
+    return 512;
 }
 
 size_t
@@ -244,7 +244,7 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 
 		// local minimum
 
-		plan[j] += 1;
+		plan[m_width * 2 - j] += (left[i] + right[i]);
 	    }
 	}
     }
