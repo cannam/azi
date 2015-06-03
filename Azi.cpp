@@ -67,7 +67,7 @@ Azi::getCopyright() const
 Azi::InputDomain
 Azi::getInputDomain() const
 {
-    return TimeDomain;
+    return FrequencyDomain;
 }
 
 size_t
