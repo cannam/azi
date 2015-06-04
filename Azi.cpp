@@ -73,13 +73,13 @@ Azi::getInputDomain() const
 size_t
 Azi::getPreferredBlockSize() const
 {
-    return 4096;
+    return 8192;
 }
 
 size_t 
 Azi::getPreferredStepSize() const
 {
-    return 512;
+    return 256;
 }
 
 size_t
@@ -200,19 +200,16 @@ Azi::rms(const vector<float> &buffer)
 Azi::FeatureSet
 Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 {
-//    vector<complex<float> > left, right;
     vector<float> left, right;
     for (int i = 0; i <= m_blockSize/2; ++i) {
-	left.push_back(std::abs
-		       (complex<float>
-			(inputBuffers[0][i*2], inputBuffers[0][i*2+1])));
-	right.push_back(std::abs
-			(complex<float>
-			 (inputBuffers[1][i*2], inputBuffers[1][i*2+1])));
+	left.push_back(std::abs(complex<float>
+				(inputBuffers[0][i*2], inputBuffers[0][i*2+1])));
+	right.push_back(std::abs(complex<float>
+				 (inputBuffers[1][i*2], inputBuffers[1][i*2+1])));
     }
     int n = left.size();
 
-    vector<float> plan(m_width * 2 + 1, 0.f);
+    vector<float> plan(m_width * 2 + 3, 0.f);
     vector<float> cancelled(m_width * 2 + 1);
 
     for (int i = 0; i < n; ++i) {
@@ -244,7 +241,13 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 
 		// local minimum
 
-		plan[m_width * 2 - j] += (left[i] + right[i]);
+		float pan = float(j - m_width) / m_width;
+		float leftGain = 1.f, rightGain = 1.f;
+		if (pan > 0.f) leftGain *= 1.f - pan;
+		if (pan < 0.f) rightGain *= pan + 1.f;
+		
+		plan[m_width * 2 - j + 1] +=
+		    leftGain * std::abs(left[i]) + rightGain * std::abs(right[i]);
 	    }
 	}
     }
