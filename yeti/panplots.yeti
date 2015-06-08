@@ -67,16 +67,17 @@ plotForRange (cancelled 1 0) "Left 1, right 0: perceived as full left";
 plotForRange (cancelled 0 1) "Left 0, right 1: perceived as full right";
 plotForRange (cancelled 0.5 1) "Left 0.5, right 1";
 plotForRange (cancelled 0.5 0.2) "Left 0.5, right 0.2";
-
+/*
 c mag phase = complex.fromPolar mag phase;
 
 plotForRange (cancelledCplx (c 1 0) (c 1 0)) "Left 1, right 1, in phase";
+plotForRange (cancelledCplx (c 0.5 0) (c 1 0)) "Left 0.5, right 1, in phase";
 plotForRange (cancelledCplx (c 1 0) (c 1 pi)) "Left 1, right 1, opposite phase";
 plotForRange (cancelledCplx (c 1 0) (c 1 0.1)) "Left 1, right 1, phases 0.1 out";
 plotForRange (cancelledCplx (c 1 0) (c 1 0.2)) "Left 1, right 1, phases 0.2 out";
 plotForRange (cancelledCplx (c 1 0) (c 1 0.8)) "Left 1, right 1, phases 0.8 out";
 plotForRange (cancelledCplx (c 0.5 0) (c 0.2 0.2)) "Left 0.5, right 0.2, phases 0.2 out";
-
+*/
 sinv offset = vector.fromList 
    (map do i: sin ((i + offset) * 2 * pi / 100) done [0..100]);
 
