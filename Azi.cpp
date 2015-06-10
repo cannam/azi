@@ -12,7 +12,7 @@ using std::endl;
 
 Azi::Azi(float inputSampleRate) :
     Plugin(inputSampleRate),
-    m_width(64)
+    m_width(128)
 {
 }
 
@@ -203,37 +203,18 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
     vector<float> left, right;
 
     int n = int(m_blockSize/2 + 1);
-//    int w = m_width * 2 + 1;
 
-//    vector<float> plan(w, 0.f);
-/*
-    const float *inleft = in[0];
-    const float *inright = in[1];
+    vector<float> plan(m_width * 2 + 3, 0.f);
+
+    const float *inleft = inputBuffers[0];
+    const float *inright = inputBuffers[1];
 
     for (int i = 0; i < n; ++i) {
 
 	int ri = i*2, ii = i*2 + 1;
 	
-	float left = sqrtf(inleft[ri] * inleft[ri] + inleft[ii] * inleft[ii]);
-	float right = sqrtf(inright[ri] * inright[ri] + inright[ii] * inright[ii]);
-
-*/	
-    
-    for (int i = 0; i <= m_blockSize/2; ++i) {
-	left.push_back(std::abs(complex<float>
-				(inputBuffers[0][i*2], inputBuffers[0][i*2+1])));
-	right.push_back(std::abs(complex<float>
-				 (inputBuffers[1][i*2], inputBuffers[1][i*2+1])));
-    }
-//    int n = left.size();
-
-    vector<float> plan(m_width * 2 + 3, 0.f);
-    vector<float> cancelled(m_width * 2 + 1);
-
-    for (int i = 0; i < n; ++i) {
-
-	float lmag = left[i];
-	float rmag = right[i];
+	float lmag = sqrtf(inleft[ri] * inleft[ri] + inleft[ii] * inleft[ii]);
+	float rmag = sqrtf(inright[ri] * inright[ri] + inright[ii] * inright[ii]);
 
 	// lmag = 0.0, rmag = 1.0 -> min cancelled is at +1.0
 	// lmag = 1.0, rmag = 0.0 -> at -1.0 [val at 0.0 = 1.0]
@@ -251,62 +232,25 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 	float larger = std::max(lmag, rmag);
 	float smaller = std::min(lmag, rmag);
 
-	float pos = 0.0;
+	float pan = 0.0;
 
 	if (larger > smaller) {
-	    float abspos = 1.0 - (smaller / larger);
-	    if (lmag > rmag) pos = -abspos;
-	    else pos = abspos;
+	    float abspan = 1.0 - (smaller / larger);
+	    if (lmag > rmag) pan = -abspan;
+	    else pan = abspan;
 	}
-
-	int idx = int(-roundf(pos * m_width)) + m_width + 1;
 
 	float leftGain = 1.f, rightGain = 1.f;
-	if (pos > 0.f) leftGain *= 1.f - pos;
-	if (pos < 0.f) rightGain *= pos + 1.f;
+	if (pan > 0.f) leftGain *= 1.f - pan;
+	if (pan < 0.f) rightGain *= pan + 1.f;
 
-	plan[idx] += leftGain * lmag + rightGain * rmag;
-/*	
-	for (int j = 0; j <= m_width * 2; ++j) {
+	float pos = -pan * m_width + m_width;
+	float mag = leftGain * lmag + rightGain * rmag;
 
-	    float pan = float(j - m_width) / m_width;
-
-	    float leftGain = 1.f, rightGain = 1.f;
-	    if (pan > 0.f) leftGain *= 1.f - pan;
-	    if (pan < 0.f) rightGain *= pan + 1.f;
-	    
-	    if (leftGain < rightGain) { // right half of image
-		float ratio = leftGain / rightGain;
-		cancelled[j] = std::abs(left[i] - ratio * right[i]);
-	    } else {
-		float ratio = rightGain / leftGain;
-		cancelled[j] = std::abs(right[i] - ratio * left[i]);
-	    }
-	}
-
-	for (int j = 0; j <= m_width * 2; ++j) {
-
-	    if ((j == 0 && cancelled[j] < cancelled[j+1]) ||
-		(j == m_width*2 && cancelled[j] < cancelled[j-1]) ||
-		(j > 0 && j < m_width*2 &&
-		 cancelled[j] < cancelled[j-1] &&
-		 cancelled[j] < cancelled[j+1])) {
-
-		// local minimum
-
-		float pan = float(j - m_width) / m_width;
-
-		cerr << "j = " << j << " -> pan " << pan << ", pos = " << pos << endl;
-
-		float leftGain = 1.f, rightGain = 1.f;
-		if (pan > 0.f) leftGain *= 1.f - pan;
-		if (pan < 0.f) rightGain *= pan + 1.f;
-		
-		plan[m_width * 2 - j + 1] +=
-		    leftGain * std::abs(left[i]) + rightGain * std::abs(right[i]);
-	    }
-	}
-*/
+	float ipos = floorf(pos);
+	
+	plan[int(ipos) + 1] += mag * (1.f - (pos - ipos));
+	plan[int(ipos) + 2] += mag * (pos - ipos);
     }
 
     FeatureSet fs;
@@ -315,12 +259,6 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 
     fs[0].push_back(f);
 
-//    cerr << "feature returning:" << endl;
-//    for (int i = 0; i < fs[0][0].values.size(); ++i) {
-//	cerr << fs[0][0].values[i] << " ";
-//    }
-//    cerr << endl;
-    
     return fs;
 }
 
