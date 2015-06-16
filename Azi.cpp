@@ -3,14 +3,16 @@
 
 #include <cmath>
 #include <iostream>
+#include <complex>
 
 using std::vector;
+using std::complex;
 using std::cerr;
 using std::endl;
 
 Azi::Azi(float inputSampleRate) :
     Plugin(inputSampleRate),
-    m_width(32)
+    m_width(128)
 {
 }
 
@@ -65,13 +67,13 @@ Azi::getCopyright() const
 Azi::InputDomain
 Azi::getInputDomain() const
 {
-    return TimeDomain;
+    return FrequencyDomain;
 }
 
 size_t
 Azi::getPreferredBlockSize() const
 {
-    return 2048;
+    return 8192;
 }
 
 size_t 
@@ -198,91 +200,62 @@ Azi::rms(const vector<float> &buffer)
 Azi::FeatureSet
 Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 {
-    vector<float> left, right, mixed;
-    for (int i = 0; i < m_blockSize; ++i) {
-	left.push_back(inputBuffers[0][i]);
-	right.push_back(inputBuffers[1][i]);
-	mixed.push_back((left[i] + right[i]) / 2.f);
+    vector<float> left, right;
+
+    int n = int(m_blockSize/2 + 1);
+
+    vector<float> plan(m_width * 2 + 3, 0.f);
+
+    const float *inleft = inputBuffers[0];
+    const float *inright = inputBuffers[1];
+
+    for (int i = 0; i < n; ++i) {
+
+	int ri = i*2, ii = i*2 + 1;
+	
+	float lmag = sqrtf(inleft[ri] * inleft[ri] + inleft[ii] * inleft[ii]);
+	float rmag = sqrtf(inright[ri] * inright[ri] + inright[ii] * inright[ii]);
+
+	// lmag = 0.0, rmag = 1.0 -> min cancelled is at +1.0
+	// lmag = 1.0, rmag = 0.0 -> at -1.0 [val at 0.0 = 1.0]
+	// lmag = 0.5, rmag = 0.2 -> at -0.6 [val at 0.0 = 0.3]
+	// lmag = 0.5, rmag = 1.0 -> at +0.5 [val at 0.0 = 0.5]
+	// lmag = 1.0, rmag = 1.0 -> at +0.0 
+
+	// if lmag == rmag -> 0.0
+	// else if lmag > rmag -> negative
+	// else -> positive
+
+	// val at 0.0 = larger - smaller
+	// mag of null = 1.0 - (smaller / larger)
+
+	float larger = std::max(lmag, rmag);
+	float smaller = std::min(lmag, rmag);
+
+	float pan = 0.0;
+
+	if (larger > smaller) {
+	    float abspan = 1.0 - (smaller / larger);
+	    if (lmag > rmag) pan = -abspan;
+	    else pan = abspan;
+	}
+
+	float leftGain = 1.f, rightGain = 1.f;
+	if (pan > 0.f) leftGain *= 1.f - pan;
+	if (pan < 0.f) rightGain *= pan + 1.f;
+
+	float pos = -pan * m_width + m_width;
+	float mag = leftGain * lmag + rightGain * rmag;
+
+	float ipos = floorf(pos);
+	
+	plan[int(ipos) + 1] += mag * (1.f - (pos - ipos));
+	plan[int(ipos) + 2] += mag * (pos - ipos);
     }
 
     FeatureSet fs;
     Feature f;
-    f.values = vector<float>(m_width * 2 + 1, 0.f);
-
-    float threshold = 0.001;
-    float diffThreshold = 0.000001;
-
-    float mixedRms = 0.f;
-
-    vector<float> cancelled(m_blockSize, 0.f);
-    vector<float> bestRemainder(m_blockSize, 0.f);
-
-    while (1) {
-
-	float prevMixedRms = mixedRms;
-	mixedRms = rms(mixed);
-
-	if (mixedRms < threshold ||
-	    fabsf(mixedRms - prevMixedRms) < diffThreshold) {
-	    break;
-	}
-
-	float bestRmsDiff = 0.f;
-	int bestAzi = 0;
-	float bestLeftGain = 0.f;
-	float bestRightGain = 0.f;
-
-	for (int j = -m_width; j <= m_width; ++j) {
-
-	    float pan = float(j) / m_width;
-
-	    float leftGain = 1.f, rightGain = 1.f;
-	    if (pan > 0.f) leftGain *= 1.f - pan;
-	    if (pan < 0.f) rightGain *= pan + 1.f;
-
-	    if (leftGain < rightGain) {
-	
-		float ratio = leftGain / rightGain;
-		for (int i = 0; i < m_blockSize; ++i) {
-		    cancelled[i] = left[i] - ratio * right[i];
-		}
-
-	    } else {
-	
-		float ratio = rightGain / leftGain;
-		for (int i = 0; i < m_blockSize; ++i) {
-		    cancelled[i] = right[i] - ratio * left[i];
-		}
-	    }
-
-	    float cancelledRms = rms(cancelled);
-	    float diff = mixedRms - cancelledRms;
-
-//	    cerr << "for j = " << j << " diff = " << diff << endl;
-
-	    if (diff > bestRmsDiff) {
-		bestRmsDiff = diff;
-		bestAzi = j;
-		bestLeftGain = leftGain;
-		bestRightGain = rightGain;
-		for (int i = 0; i < m_blockSize; ++i) {
-		    bestRemainder[i] = (mixed[i] - cancelled[i]);
-		}
-	    }
-	}
-
-	cerr << "mixedRms = " << mixedRms << ", bestAzi = " << bestAzi << ", bestRmsDiff = " << bestRmsDiff << endl;
-
-	f.values[bestAzi + m_width] = bestRmsDiff;
-	    
-	for (int i = 0; i < m_blockSize; ++i) {
-	    left[i] -= bestLeftGain * bestRemainder[i];
-	    right[i] -= bestRightGain * bestRemainder[i];
-	    mixed[i] = (left[i] + right[i]) / 2.f;
-	}
-    }
-
-    cerr << "mixedRms after = " << mixedRms << endl;
+    f.values = plan;
 
     fs[0].push_back(f);
 
