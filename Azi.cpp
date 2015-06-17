@@ -160,7 +160,7 @@ Azi::getOutputDescriptors() const
     d.description = "";
     d.unit = "";
     d.hasFixedBinCount = true;
-    d.binCount = m_width * 2 + 1;
+    d.binCount = m_width * 2 + 3; // include a 1-bin "margin" at top and bottom
     d.hasKnownExtents = false;
     d.isQuantized = false;
     d.sampleType = OutputDescriptor::OneSamplePerStep;
