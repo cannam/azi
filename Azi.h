@@ -47,6 +47,11 @@ protected:
     int m_width;
     int m_blockSize;
 
+    std::vector<std::vector<float> > m_prevPlanSpec;
+    std::vector<int> m_labels;
+
+    double distance(const std::vector<float> &vv1, const std::vector<float> &vv2);
+    
     float rms(const std::vector<float> &);
 };
 

@@ -4,6 +4,8 @@
 #include <cmath>
 #include <iostream>
 #include <complex>
+#include <numeric>
+#include <algorithm>
 
 using std::vector;
 using std::complex;
@@ -197,6 +199,26 @@ Azi::rms(const vector<float> &buffer)
     return sqrtf(sum / buffer.size());
 }
 
+static double LONG_DISTANCE = 1e8;
+
+double
+Azi::distance(const vector<float> &vv1, const vector<float> &vv2)
+{
+    float thresh = 1e-6;
+    float sum1 = accumulate(vv1.begin(), vv1.end(), 0.f);
+    float sum2 = accumulate(vv2.begin(), vv2.end(), 0.f);
+    if (sum1 < thresh || sum2 < thresh) {
+	return LONG_DISTANCE;
+    }
+    double dist = 0.0;
+    for (int i = 0; i < int(vv1.size()); ++i) {
+	float v1 = vv1[i] / sum1;
+	float v2 = vv2[i] / sum2;
+	dist += fabs(v1 - v2);
+    }
+    return dist;
+}
+
 Azi::FeatureSet
 Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 {
@@ -255,29 +277,68 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 	planSpec[int(ipos) + 1][i] = mag * (pos - ipos);
     }
 
-    vector<float> plan(m_width * 2 + 3, 0.f);
+    vector<int> labels(m_width * 2 + 1, 0);
 
-    double thresh = 2.0;
-
-    for (int j = 0; j < m_width * 2 + 1; ++j) {
-	double num = 0.0;
-	double denom = 0.0;
-	for (int i = 0; i < n; ++i) {
-	    double freq = (double(i) * m_inputSampleRate) / m_blockSize;
-	    num += freq * planSpec[j][i];
-	    denom += planSpec[j][i];
-	}
-	if (denom > thresh) {
-	    plan[j] = num / denom;
-	}
+    if (m_prevPlanSpec.empty()) {
+	m_prevPlanSpec = planSpec;
+	m_labels = labels;
+	return FeatureSet();
     }
 
+    vector<float> plan(m_width * 2 + 3, 0.f);
+
+    int maxoff = m_width / 16;
+    
+    double thresh = 40.0;
+
+    for (int j = 0; j < m_width * 2 + 1; ++j) {
+
+	int bestk = j;
+	double bestdist = LONG_DISTANCE;
+
+	double sum = accumulate(planSpec[j].begin(), planSpec[j].end(), 0.0);
+	if (sum < thresh) {
+	    labels[j] = 0;
+	    continue;
+	}
+	
+	for (int off = -maxoff; off <= maxoff; ++off) {
+	    int k = j + off;
+	    if (k < 0 || k >= m_width * 2 + 1) {
+		continue;
+	    }
+	    double dist = distance(m_prevPlanSpec[k], planSpec[j]);
+	    if (dist < bestdist) {
+		bestdist = dist;
+		bestk = k;
+	    }
+	}
+
+	if (bestdist < LONG_DISTANCE) {
+	    if (m_labels[bestk] == 0) {
+		int nextLabel = 1;
+		while (find(m_labels.begin(), m_labels.end(), nextLabel)
+		       != m_labels.end()) {
+		    nextLabel = (rand() >> 8) % (m_width * 2);
+		}
+		labels[j] = m_labels[bestk] = nextLabel;
+	    } else {
+		labels[j] = m_labels[bestk];
+	    }
+	}
+
+	plan[j] = float(labels[j]);
+    }
+    
     FeatureSet fs;
     Feature f;
     f.values = plan;
 
     fs[0].push_back(f);
 
+    m_prevPlanSpec = planSpec;
+    m_labels = labels;
+    
     return fs;
 }
 
