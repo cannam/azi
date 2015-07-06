@@ -204,10 +204,10 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 
     int n = int(m_blockSize/2 + 1);
 
-    vector<float> plan(m_width * 2 + 3, 0.f);
-
     const float *inleft = inputBuffers[0];
     const float *inright = inputBuffers[1];
+
+    vector<vector<float> > planSpec(m_width * 2 + 1, vector<float>(n, 0.f));
 
     for (int i = 0; i < n; ++i) {
 
@@ -248,9 +248,28 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 	float mag = leftGain * lmag + rightGain * rmag;
 
 	float ipos = floorf(pos);
-	
-	plan[int(ipos) + 1] += mag * (1.f - (pos - ipos));
-	plan[int(ipos) + 2] += mag * (pos - ipos);
+	if (ipos < 0) ipos = 0;
+	if (ipos >= m_width * 2) ipos = m_width * 2 - 1;
+
+	planSpec[int(ipos)][i] = mag * (1.f - (pos - ipos));
+	planSpec[int(ipos) + 1][i] = mag * (pos - ipos);
+    }
+
+    vector<float> plan(m_width * 2 + 3, 0.f);
+
+    double thresh = 2.0;
+
+    for (int j = 0; j < m_width * 2 + 1; ++j) {
+	double num = 0.0;
+	double denom = 0.0;
+	for (int i = 0; i < n; ++i) {
+	    double freq = (double(i) * m_inputSampleRate) / m_blockSize;
+	    num += freq * planSpec[j][i];
+	    denom += planSpec[j][i];
+	}
+	if (denom > thresh) {
+	    plan[j] = num / denom;
+	}
     }
 
     FeatureSet fs;
