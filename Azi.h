@@ -3,8 +3,11 @@
 
 #include <vamp-sdk/Plugin.h>
 
+#include <map>
+
 using std::string;
 
+class Out;
 
 class Azi : public Vamp::Plugin
 {
@@ -46,6 +49,8 @@ public:
 protected:
     int m_width;
     int m_blockSize;
+    int m_stepSize;
+    int m_blockNo;
 
     std::vector<std::vector<float> > m_prevPlanSpec;
     std::vector<int> m_labels;
@@ -53,8 +58,9 @@ protected:
     double distance(const std::vector<float> &vv1, const std::vector<float> &vv2);
     
     float rms(const std::vector<float> &);
-};
 
+    std::map<int, Out *> m_outs;
+};
 
 
 #endif

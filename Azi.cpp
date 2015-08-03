@@ -1,5 +1,6 @@
 
 #include "Azi.h"
+#include "Out.h"
 
 #include <cmath>
 #include <iostream>
@@ -75,13 +76,13 @@ Azi::getInputDomain() const
 size_t
 Azi::getPreferredBlockSize() const
 {
-    return 8192;
+    return 16384;
 }
 
 size_t 
 Azi::getPreferredStepSize() const
 {
-    return 256;
+    return 512;
 }
 
 size_t
@@ -179,6 +180,8 @@ Azi::initialise(size_t channels, size_t stepSize, size_t blockSize)
 	channels > getMaxChannelCount()) return false;
 
     m_blockSize = blockSize;
+    m_stepSize = stepSize;
+    m_blockNo = 0;
 
     return true;
 }
@@ -187,6 +190,11 @@ void
 Azi::reset()
 {
     // Clear buffers, reset stored values, etc
+    m_blockNo = 0;
+    for (std::map<int, Out *>::iterator i = m_outs.begin(); i != m_outs.end(); ++i) {
+	delete i->second;
+    }
+    m_outs.clear();
 }
 
 float
@@ -291,6 +299,8 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
     
     double thresh = 40.0;
 
+    int maxLabel = -1;
+    
     for (int j = 0; j < m_width * 2 + 1; ++j) {
 
 	int bestk = j;
@@ -319,16 +329,50 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 		int nextLabel = 1;
 		while (find(m_labels.begin(), m_labels.end(), nextLabel)
 		       != m_labels.end()) {
-		    nextLabel = (rand() >> 8) % (m_width * 2);
+//		    nextLabel = (rand() >> 8) % (m_width * 2);
+		    nextLabel = nextLabel + 1;
 		}
 		labels[j] = m_labels[bestk] = nextLabel;
+		cerr << "nextLabel: " << nextLabel << endl;
 	    } else {
 		labels[j] = m_labels[bestk];
+	    }
+	    if (labels[j] > maxLabel) {
+		maxLabel = labels[j];
 	    }
 	}
 
 	plan[j] = float(labels[j]);
     }
+
+    cerr << "maxLabel = " << maxLabel << endl;
+
+    for (int label = 0; label < maxLabel; ++label) {
+	vector<float> leftSpec(n * 2, 0.f);
+	vector<float> rightSpec(n * 2, 0.f);
+	bool have = false;
+	for (int j = 0; j < m_width * 2 + 1; ++j) {
+	    if (labels[j] == label) {
+		have = true;
+		for (int i = 0; i < n; ++i) {
+		    if (planSpec[j][i] > 0.f) {
+			leftSpec[i*2] += inputBuffers[0][i*2];
+			leftSpec[i*2+1] += inputBuffers[0][i*2+1];
+			rightSpec[i*2] += inputBuffers[1][i*2];
+			rightSpec[i*2+1] += inputBuffers[1][i*2+1];
+		    }
+		}
+	    }
+	}
+	if (!have) continue;
+	if (m_outs.find(label) == m_outs.end()) {
+	    m_outs[label] =
+		new Out(label, m_blockSize, m_stepSize, m_inputSampleRate);
+	}
+	m_outs[label]->put(m_blockNo, leftSpec, rightSpec);
+    }
+
+    ++m_blockNo;
     
     FeatureSet fs;
     Feature f;
@@ -345,6 +389,11 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 Azi::FeatureSet
 Azi::getRemainingFeatures()
 {
+    for (std::map<int, Out *>::iterator i = m_outs.begin(); i != m_outs.end(); ++i) {
+	delete i->second;
+    }
+    m_outs.clear();
+
     return FeatureSet();
 }
 

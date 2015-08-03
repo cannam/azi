@@ -9,15 +9,15 @@ CXX	?= g++
 CC	?= gcc
 
 CFLAGS := $(CFLAGS)
-CXXFLAGS := $(CFLAGS) -I. -I$(VAMPSDK_DIR) $(CXXFLAGS)
+CXXFLAGS := $(CFLAGS) -I. -I../bqvec -I../bqthingfactory -I../bqfft -I../bqaudiostream -I$(VAMPSDK_DIR) $(CXXFLAGS)
 
-LDFLAGS := $(LDFLAGS) 
+LDFLAGS := $(LDFLAGS) -L../bqaudiostream -lbqaudiostream -L../bqresample -lbqresample -L../bqfft -lbqfft -lsndfile
 PLUGIN_LDFLAGS := $(LDFLAGS) $(PLUGIN_LDFLAGS)
 
 PLUGIN	:= azi$(PLUGIN_EXT)
 
-PLUGIN_HEADERS := $(SRC_DIR)/Azi.h
-PLUGIN_SOURCES := $(SRC_DIR)/Azi.cpp $(SRC_DIR)/plugins.cpp
+PLUGIN_HEADERS := $(SRC_DIR)/Azi.h $(SRC_DIR)/Out.h
+PLUGIN_SOURCES := $(SRC_DIR)/Azi.cpp $(SRC_DIR)/Out.cpp $(SRC_DIR)/plugins.cpp
 
 HEADERS	     := $(PLUGIN_HEADERS)
 SOURCES	     := $(PLUGIN_SOURCES)
