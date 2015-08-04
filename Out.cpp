@@ -63,6 +63,9 @@ Out::put(int n, vector<float> leftSpec, vector<float> rightSpec)
 	
     m_fft->inverseInterleaved(leftSpec.data(), m_left.data());
     m_fft->inverseInterleaved(rightSpec.data(), m_right.data());
+
+    v_fftshift(m_left.data(), m_blockSize);
+    v_fftshift(m_right.data(), m_blockSize);
     
     v_scale(m_left.data(), 1.0 / m_blockSize, m_blockSize);
     v_scale(m_right.data(), 1.0 / m_blockSize, m_blockSize);

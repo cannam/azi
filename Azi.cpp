@@ -7,11 +7,9 @@
 #include <complex>
 #include <numeric>
 #include <algorithm>
+#include <set>
 
-using std::vector;
-using std::complex;
-using std::cerr;
-using std::endl;
+using namespace std;
 
 Azi::Azi(float inputSampleRate) :
     Plugin(inputSampleRate),
