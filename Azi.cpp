@@ -388,6 +388,7 @@ Azi::FeatureSet
 Azi::getRemainingFeatures()
 {
     for (std::map<int, Out *>::iterator i = m_outs.begin(); i != m_outs.end(); ++i) {
+	i->second->flush(m_blockNo);
 	delete i->second;
     }
     m_outs.clear();

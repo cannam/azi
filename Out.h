@@ -16,6 +16,7 @@ public:
     ~Out();
 
     void put(int n, std::vector<float> leftSpec, std::vector<float> rightSpec);
+    void flush(int n);
     
 private:
     int m_id;

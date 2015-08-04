@@ -39,7 +39,6 @@ Out::Out(int id, int blockSize, int stepSize, int sampleRate) :
 
 Out::~Out()
 {
-    //!!! + flush
     delete m_fft;
     delete m_stream;
 }
@@ -47,11 +46,11 @@ Out::~Out()
 void
 Out::put(int n, vector<float> leftSpec, vector<float> rightSpec)
 {
-    cerr << "put: id = " << m_id << ", n = " << n << endl;
+//    cerr << "put: id = " << m_id << ", n = " << n << endl;
     
     if (n > m_nextn) {
 	vector<float> empty(m_blockSize + 2, 0.f);
-	for (int i = 0; i < n; ++i) {
+	for (int i = m_nextn; i < n; ++i) {
 	    put(i, empty, empty);
 	}
     }
@@ -66,9 +65,12 @@ Out::put(int n, vector<float> leftSpec, vector<float> rightSpec)
 
     v_fftshift(m_left.data(), m_blockSize);
     v_fftshift(m_right.data(), m_blockSize);
+
+    // 1/N for FFT scaling, (2*step)/N for overlap-add
+    double scale = (2.0 * m_stepSize) / (double(m_blockSize) * m_blockSize);
     
-    v_scale(m_left.data(), 1.0 / m_blockSize, m_blockSize);
-    v_scale(m_right.data(), 1.0 / m_blockSize, m_blockSize);
+    v_scale(m_left.data(), scale, m_blockSize);
+    v_scale(m_right.data(), scale, m_blockSize);
 
     v_multiply(m_left.data(), m_window.data(), m_blockSize);
     v_multiply(m_right.data(), m_window.data(), m_blockSize);
@@ -80,3 +82,21 @@ Out::put(int n, vector<float> leftSpec, vector<float> rightSpec)
     
     m_nextn = n + 1;
 }
+
+void
+Out::flush(int n)
+{
+    vector<float> empty(m_blockSize + 2, 0.f);
+    
+    if (n > m_nextn) {
+	for (int i = m_nextn; i < n; ++i) {
+	    put(i, empty, empty);
+	}
+    }
+
+    int pad = (m_blockSize / m_stepSize) - 1;
+    for (int i = 0; i < pad; ++i) {
+	put(m_nextn, empty, empty);
+    }
+}
+
