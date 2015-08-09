@@ -11,9 +11,14 @@
 
 using namespace std;
 
+static const int WIDTH = 32;
+static const int MAXJUMP = 2;
+static const int FFTSIZE = 1024;
+static const int STEP = 256;
+
 Azi::Azi(float inputSampleRate) :
     Plugin(inputSampleRate),
-    m_width(128)
+    m_width(WIDTH)
 {
 }
 
@@ -74,13 +79,13 @@ Azi::getInputDomain() const
 size_t
 Azi::getPreferredBlockSize() const
 {
-    return 16384;
+    return FFTSIZE;
 }
 
 size_t 
 Azi::getPreferredStepSize() const
 {
-    return 512;
+    return STEP;
 }
 
 size_t
@@ -293,9 +298,10 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 
     vector<float> plan(m_width * 2 + 3, 0.f);
 
-    int maxoff = m_width / 16;
+    int maxoff = MAXJUMP;
     
-    double thresh = 40.0;
+//    double thresh = 40.0;
+    double thresh = 10;
 
     int maxLabel = -1;
     
@@ -331,7 +337,7 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 		    nextLabel = nextLabel + 1;
 		}
 		labels[j] = m_labels[bestk] = nextLabel;
-		cerr << "nextLabel: " << nextLabel << endl;
+//		cerr << "nextLabel: " << nextLabel << endl;
 	    } else {
 		labels[j] = m_labels[bestk];
 	    }
@@ -340,10 +346,11 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 	    }
 	}
 
-	plan[j] = float(labels[j]);
+//	plan[j] = float(labels[j]);
+	plan[j] = sum;
     }
 
-    cerr << "maxLabel = " << maxLabel << endl;
+//    cerr << "maxLabel = " << maxLabel << endl;
 
     for (int label = 0; label < maxLabel; ++label) {
 	vector<float> leftSpec(n * 2, 0.f);
