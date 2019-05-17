@@ -45,7 +45,7 @@ string
 Azi::getMaker() const
 {
     // Your name here
-    return "";
+    return "Chris Cannam";
 }
 
 int
