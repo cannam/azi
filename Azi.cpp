@@ -5,6 +5,7 @@
 #include <iostream>
 #include <complex>
 #include <algorithm>
+#include <climits>
 
 using std::vector;
 using std::complex;
@@ -86,7 +87,7 @@ Azi::getPreferredStepSize() const
 size_t
 Azi::getMinChannelCount() const
 {
-    return 2;
+    return 1; // pointless, but supported
 }
 
 size_t
@@ -115,13 +116,13 @@ Azi::getParameterDescriptors() const
 }
 
 float
-Azi::getParameter(string identifier) const
+Azi::getParameter(string) const
 {
     return 0;
 }
 
 void
-Azi::setParameter(string identifier, float value) 
+Azi::setParameter(string, float) 
 {
 }
 
@@ -143,7 +144,7 @@ Azi::getCurrentProgram() const
 }
 
 void
-Azi::selectProgram(string name)
+Azi::selectProgram(string)
 {
 }
 
@@ -172,12 +173,15 @@ Azi::getOutputDescriptors() const
 }
 
 bool
-Azi::initialise(size_t channels, size_t stepSize, size_t blockSize)
+Azi::initialise(size_t channels, size_t, size_t blockSize)
 {
     if (channels < getMinChannelCount() ||
 	channels > getMaxChannelCount()) return false;
 
-    m_blockSize = blockSize;
+    if (blockSize > INT_MAX) return false;
+
+    m_channels = int(channels);
+    m_blockSize = int(blockSize);
 
     return true;
 }
@@ -195,11 +199,11 @@ Azi::rms(const vector<float> &buffer)
     for (int i = 0; i < int(buffer.size()); ++i) {
 	sum += buffer[i] * buffer[i];
     }
-    return sqrtf(sum / buffer.size());
+    return sqrtf(sum / float(buffer.size()));
 }
 
 Azi::FeatureSet
-Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
+Azi::process(const float *const *inputBuffers, Vamp::RealTime)
 {
     vector<float> left, right;
 
@@ -208,7 +212,7 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
     vector<float> plan(m_width * 2 + 3, 0.f);
 
     const float *inleft = inputBuffers[0];
-    const float *inright = inputBuffers[1];
+    const float *inright = (m_channels == 2 ? inputBuffers[1] : inleft);
 
     for (int i = 0; i < n; ++i) {
 
@@ -236,7 +240,7 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 	float pan = 0.0;
 
 	if (larger > smaller) {
-	    float abspan = 1.0 - (smaller / larger);
+	    float abspan = 1.f - (smaller / larger);
 	    if (lmag > rmag) pan = -abspan;
 	    else pan = abspan;
 	}
@@ -245,7 +249,8 @@ Azi::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 	if (pan > 0.f) leftGain *= 1.f - pan;
 	if (pan < 0.f) rightGain *= pan + 1.f;
 
-	float pos = -pan * m_width + m_width;
+        float wid = float(m_width);
+	float pos = -pan * wid + wid;
 	float mag = leftGain * lmag + rightGain * rmag;
 
 	float ipos = floorf(pos);

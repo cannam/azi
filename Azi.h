@@ -44,6 +44,7 @@ public:
     FeatureSet getRemainingFeatures();
 
 protected:
+    int m_channels;
     int m_width;
     int m_blockSize;
 
