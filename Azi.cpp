@@ -169,10 +169,10 @@ Azi::getOutputDescriptors() const
     d.hasDuration = false;
 
     char buf[100];
-    for (int i = 0; i < d.binCount; ++i) {
+    for (int i = 0; i < int(d.binCount); ++i) {
         if (i == 0) {
             d.binNames.push_back("Left");
-        } else if (i + 1 == d.binCount) {
+        } else if (i + 1 == int(d.binCount)) {
             d.binNames.push_back("Right");
         } else if (i == m_width + 1) {
             d.binNames.push_back("Centre");
