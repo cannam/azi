@@ -167,6 +167,27 @@ Azi::getOutputDescriptors() const
     d.isQuantized = false;
     d.sampleType = OutputDescriptor::OneSamplePerStep;
     d.hasDuration = false;
+
+    char buf[100];
+    for (int i = 0; i < d.binCount; ++i) {
+        if (i == 0) {
+            d.binNames.push_back("Left");
+        } else if (i + 1 == d.binCount) {
+            d.binNames.push_back("Right");
+        } else if (i == m_width + 1) {
+            d.binNames.push_back("Centre");
+        } else {
+            int p = int(round(double(i - m_width - 1) /
+                              double(m_width) * 100.0));
+            if (p > 0) {
+                sprintf(buf, "R %03d", p);
+            } else {
+                sprintf(buf, "L %03d", -p);
+            }
+            d.binNames.push_back(buf);
+        }
+    }
+    
     list.push_back(d);
 
     return list;
