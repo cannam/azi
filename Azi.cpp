@@ -37,14 +37,12 @@ Azi::getName() const
 string
 Azi::getDescription() const
 {
-    // Return something helpful here!
-    return "";
+    return "Return a stereo plan decomposition of the audio. The returned feature grid covers the stereo plan from left-channel-only (first bin) to right-channel-only (last bin), with each value indicating what proportion of signal energy is found at that point on the plan at that moment. The input should consist of two channels containing left and right channel signals.";
 }
 
 string
 Azi::getMaker() const
 {
-    // Your name here
     return "Chris Cannam";
 }
 
@@ -59,11 +57,7 @@ Azi::getPluginVersion() const
 string
 Azi::getCopyright() const
 {
-    // This function is not ideally named.  It does not necessarily
-    // need to say who made the plugin -- getMaker does that -- but it
-    // should indicate the terms under which it is distributed.  For
-    // example, "Copyright (year). All Rights Reserved", or "GPL"
-    return "";
+    return "Freely redistributable (BSD license)";
 }
 
 Azi::InputDomain
