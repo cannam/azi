@@ -33,10 +33,9 @@ plugbase:library a vamp:PluginLibrary ;
     vamp:identifier        "azi" ;
     foaf:maker             :library_maker ; 
     vamp:available_plugin  plugbase:azi ; 
-    dc:title               "Azi" ;  # Place library name here and uncomment
+    dc:title               "Stereo Plan" ;
     dc:description         "Azimuth-based stereo plan" ;
     foaf:page              <http://code.soundsoftware.ac.uk/projects/azi> ;
-#   doap:download-page     <> ;  # Place download HTML page URL here and uncomment
     .
 
 
