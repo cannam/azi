@@ -1,0 +1,30 @@
+
+Azi - Stereo Plan Vamp Plugin
+=============================
+
+This Vamp audio analysis plugin produces an azimuth-based stereo plan
+decomposition of its input, which is expected to represent a stereo
+signal in two channels of audio.
+
+For each time increment, a vector of values is returned that divides
+the stereo image into bins from left (first bin) to right (last
+bin). The value in each bin corresponds, very simplistically, to the
+proportion of signal energy found at that point in the stereo image at
+each moment.
+        
+The plugin works by transforming the channel inputs into the frequency
+domain using a short-time Fourier transform and then, for each
+frequency, using the relative levels of the two channels at that
+frequency to determine where on the stereo image the frequency can be
+said to be placed. The returned vector is then a histogram of these
+locations, for each time increment.
+      
+This is a bit experimental and perhaps should not be taken too
+literally. The frequency decomposition is arbitrary into unrelated
+bins without any perceptual basis and there are artifacts due to
+windowing. Nonetheless, when plotted it can show some of the results
+of production or recording decisions. A mono recording will appear as
+a simple straight line down the middle, while recordings with limited
+numbers of sources placed by "pan pot" will show separate strands for
+each.
+
