@@ -36,6 +36,7 @@ plugbase:library a vamp:PluginLibrary ;
     dc:title               "Stereo Plan" ;
     dc:description         "Azimuth-based stereo plan" ;
     foaf:page              <http://code.soundsoftware.ac.uk/projects/azi> ;
+    vamp:has_source        true ;
     .
 
 
